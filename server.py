@@ -27,7 +27,10 @@ app = FastAPI(title="Auto-Bid-Gen API", description="AI-based Contract Notice Ge
 # CORS Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=[
+        "http://localhost:3000",
+        "https://agent-87pu9nxuv-akaps127s-projects.vercel.app",
+        "https://agent-nu-brown.vercel.app",], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
