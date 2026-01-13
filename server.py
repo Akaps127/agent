@@ -1,7 +1,8 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
+from openai import OpenAI 
 import uvicorn
 import shutil
 import os
@@ -18,6 +19,20 @@ from src.config import initialize_notice_amount
 from src.parameters import get_parameters_definition, ParameterRules
 from src.services.verification_service import NoticeVerificationService
 
+def get_user_api_key(authorization: str = Header(None)): 
+    if not authorization: 
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid Authorization header format")
+    return authorization.replace("Bearer ", "").strip() 
+
+def call_openai(user_api_key: str, messages: list): 
+    client = OpenAI(api_key=user_api_key)
+    res = client.chat.completions.create(
+        model = "gpt-4o-mini",
+        messages=messages
+    )
+    return res.choices[0].message.content 
 
 # 허용 파일 확장자
 ALLOWED_EXTENSIONS = {".pdf", ".hwp"}
@@ -35,6 +50,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/auth/check")
+async def auth_check(authorization: str = Header(None)):
+    user_api_key = get_user_api_key(authorization) 
+    try: 
+        msg = call_openai(user_api_key, [{"role": "user", "content": "Say OK"}])
+        return {"ok":True, "message": msg} 
+    except Exception as e: 
+        raise HTTPException(status_code=401, detail=f"Invalid API Key: {str(e)}")
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -156,7 +181,8 @@ class GenerateRequest(BaseModel):
 GENERATED_FILES = {}
 
 @app.post("/generate_from_data")
-async def generate_from_data(req: GenerateRequest):
+async def generate_from_data(req: GenerateRequest, authorization: str = Header(None)):
+    user_api_key = get_user_api_key(authorization)
     print(f"[Generate] Creating notice for {req.plan_data.notice_name}")
     try:
         # Run synchronous nodes in thread pool
@@ -169,7 +195,7 @@ async def generate_from_data(req: GenerateRequest):
         verification_report = None
         if req.enable_verification:
             print("[Generate] Running verification before generating notice...")
-            service = NoticeVerificationService()
+            service = NoticeVerificationService(api_key=user_api_key)
             verification_report = await loop.run_in_executor(
                 None,
                 lambda: service.verify_notice(
@@ -231,6 +257,8 @@ async def download_docx(filename: str):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
+
+
 # [NEW] 공고문 검증 API
 class VerifyNoticeRequest(BaseModel):
     plan_data: PurchasePlan
@@ -238,7 +266,8 @@ class VerifyNoticeRequest(BaseModel):
     enable_peer_comparison: bool = True
 
 @app.post("/verify_notice", response_model=AuditReport)
-async def verify_notice(req: VerifyNoticeRequest):
+async def verify_notice(req: VerifyNoticeRequest, authorization: str = Header(None)):
+    user_api_key = get_user_api_key(authorization)
     """
     공고문 검증 API
     
@@ -254,7 +283,7 @@ async def verify_notice(req: VerifyNoticeRequest):
         loop = asyncio.get_event_loop()
         
         # 검증 서비스 초기화 및 실행
-        service = NoticeVerificationService()
+        service = NoticeVerificationService(api_key=user_api_key)
         report = await loop.run_in_executor(
             None,
             lambda: service.verify_notice(
