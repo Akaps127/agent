@@ -1,0 +1,17 @@
+langgraph
+langchain
+langchain-openai
+langchain-anthropic
+langchain-google-genai
+pypdf
+olefile
+openpyxl
+pandas
+python-dotenv
+fastapi
+uvicorn
+pdfplumber
+holidayskr
+python-docx
+python-multipart
+pyinstaller

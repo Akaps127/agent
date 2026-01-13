@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* ========================================
+   한국환경공단 Design System Tokens (K-eco)
+   ======================================== */
+
+@theme {
+  /* Primary Blue - 신뢰/정보/주요 액션 */
+  --color-primary-50: #E6F3FB;
+  --color-primary-100: #CCE4F6;
+  --color-primary-200: #99C9ED;
+  --color-primary-300: #66ADE3;
+  --color-primary-400: #3392DA;
+  --color-primary-500: #0D69A2;
+  --color-primary-600: #0A5482;
+  --color-primary-700: #084062;
+  --color-primary-800: #052B41;
+  --color-primary-900: #031521;
+
+  /* Eco Green - 친환경/성공/포인트 */
+  --color-eco-50: #F4FAE3;
+  --color-eco-100: #EAF6C8;
+  --color-eco-200: #D5EC91;
+  --color-eco-300: #C0E25B;
+  --color-eco-500: #96D130;
+  --color-eco-600: #78A726;
+  --color-eco-700: #5A7D1D;
+
+  /* Sky Blue - 서브/배경 포인트 */
+  --color-sky-50: #F2FAFC;
+  --color-sky-100: #E5F6FA;
+  --color-sky-200: #CCEDF6;
+  --color-sky-500: #8DD1E0;
+  --color-sky-600: #71A7B3;
+
+  /* Neutral Gray Scale */
+  --color-neutral-50: #F8F9FA;
+  --color-neutral-100: #F1F3F5;
+  --color-neutral-200: #E9ECEF;
+  --color-neutral-300: #DEE2E6;
+  --color-neutral-400: #CED4DA;
+  --color-neutral-500: #ADB5BD;
+  --color-neutral-600: #868E96;
+  --color-neutral-700: #495057;
+  --color-neutral-800: #343A40;
+  --color-neutral-900: #212529;
+
+  /* Border Radius */
+  --radius-card: 12px;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  /* Font Family */
+  --font-sans: 'Pretendard', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
+/* ========================================
+   Base Styles
+   ======================================== */
+
+body {
+  background-color: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+.text-balance {
+  text-wrap: balance;
+}
