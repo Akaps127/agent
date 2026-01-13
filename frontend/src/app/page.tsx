@@ -13,9 +13,11 @@ import { Notifications, notifications } from '@mantine/notifications';
 import axios from 'axios';
 
 // API Base URL - 개발환경에서는 localhost:8000, 배포환경에서는 상대경로 사용
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3000'
+const API_BASE = 
+  process.env.NEXT_PUBLIC_API_BASE ||
+  (typeof window !== 'undefined' && window.location.port === '3000'
   ? 'http://localhost:8000'
-  : '';
+  : '');
 
 // 법령 기준 금액 상수
 const GOSI_AMOUNT = 230000000;   // 2.3억 (고시금액)
@@ -125,6 +127,38 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginId, setLoginId] = useState('');
   const [loginPw, setLoginPw] = useState('');
+  
+  // 🔑 사용자 OpenAI API Key (세션 저장)
+  const [apiKey, setApiKey] = useState("");
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("OPENAI_API_KEY");
+    if (saved) setApiKey(saved);
+  }, []);
+
+  const saveApiKey = async () => {
+    sessionStorage.setItem("OPENAI_API_KEY", apiKey);
+
+    try {
+      const res = await axios.get(`${API_BASE}/auth/check`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      notifications.show({
+        title: "✅ API Key 확인 완료",
+        message: "이제 검증/생성 기능이 사용자 키로 동작합니다.",
+        color: "teal",
+        icon: <IconCheck size={18} />,
+      });
+    } catch (e: any) {
+      notifications.show({
+        title: "❌ API Key 오류",
+        message: "키가 유효하지 않거나 서버 연결에 실패했습니다.",
+        color: "red",
+        icon: <IconX size={18} />,
+      });
+    }
+  };
 
   const handleLogin = () => {
     // 간단한 데모 로그인 로직
