@@ -313,6 +313,7 @@ export default function Home() {
 
   // Step 1: Upload & Extract
   const handleExtract = async () => {
+    console.log("handleExtract called, file =", file); 
     if (!file) return;
 
     setLoading(true);
