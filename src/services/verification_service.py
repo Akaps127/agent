@@ -38,7 +38,7 @@ class NoticeVerificationService:
         Args:
             api_key: AI API 키 (None이면 환경변수에서 로드)
         """
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.api_key = api_key
         self.ai_available = bool(self.api_key)
         
         print(f"[검증 서비스 초기화]")
@@ -250,3 +250,5 @@ if __name__ == "__main__":
     service = NoticeVerificationService()
     report = service.verify_notice(mock_plan)
     service.print_summary(report)
+
+
