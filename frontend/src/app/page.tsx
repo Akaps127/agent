@@ -2,25 +2,54 @@
 
 import { useState, useEffect } from 'react';
 import {
-  AppShell, Container, Title, Paper, Group, Button,
-  TextInput, NumberInput, Grid, Badge, Text, Select, Switch, Alert, ThemeIcon, Stepper, Stack, Box, Textarea, Tabs,
-  PasswordInput, Center, Card, Image
+  AppShell,
+  Container,
+  Title,
+  Paper,
+  Group,
+  Button,
+  TextInput,
+  NumberInput,
+  Grid,
+  Badge,
+  Text,
+  Select,
+  Switch,
+  Alert,
+  ThemeIcon,
+  Stepper,
+  Stack,
+  Box,
+  Tabs,
+  PasswordInput,
+  Image,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
-import { IconUpload, IconFile, IconX, IconCheck, IconArrowRight, IconPencil, IconDownload, IconFileCheck, IconLock, IconLogin, IconLogout } from '@tabler/icons-react';
+import {
+  IconUpload,
+  IconFile,
+  IconX,
+  IconCheck,
+  IconPencil,
+  IconDownload,
+  IconFileCheck,
+  IconLock,
+  IconLogin,
+  IconLogout,
+} from '@tabler/icons-react';
 import { Notifications, notifications } from '@mantine/notifications';
 import axios from 'axios';
 
-// API Base URL - 개발환경에서는 localhost:8000, 배포환경에서는 상대경로 사용
-const API_BASE = 
+// ✅ API Base URL (배포 환경에서는 NEXT_PUBLIC_API_BASE 권장)
+const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ||
   (typeof window !== 'undefined' && window.location.port === '3000'
-  ? 'http://localhost:8000'
-  : '');
+    ? 'http://localhost:8000'
+    : '');
 
 // 법령 기준 금액 상수
-const GOSI_AMOUNT = 230000000;   // 2.3억 (고시금액)
+const GOSI_AMOUNT = 230000000; // 2.3억 (고시금액) - 현재 UI에서 직접 사용하진 않음
 const SMALL_SUM_LIMIT = 100000000; // 1억 (소액수의 한도)
 
 // 📅 날짜 계산 헬퍼 함수
@@ -39,15 +68,14 @@ const addBusinessDays = (startDate: Date, days: number): Date => {
   while (daysAdded < days) {
     currentDate.setDate(currentDate.getDate() + 1);
     const dayOfWeek = currentDate.getDay();
-    // Skip weekends (0 = Sunday, 6 = Saturday)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      daysAdded++;
-    }
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) daysAdded++;
   }
   return currentDate;
 };
 
-const calculateDefaultBidDates = (isSmallSum: boolean): { start: string; end: string; opening: string } => {
+const calculateDefaultBidDates = (
+  isSmallSum: boolean
+): { start: string; end: string; opening: string } => {
   const today = new Date();
   let openingDate: Date;
 
@@ -67,18 +95,17 @@ const calculateDefaultBidDates = (isSmallSum: boolean): { start: string; end: st
   };
 };
 
-
 // Type definition for the form
 interface FormValues {
   notice_name: string;
   budget_total: number;
   budget_supply: number;
-  item_codes: string;    // Treated as string for CSV input
+  item_codes: string;
   industry_codes: string;
-  industry_names: string;  // 업종명
-  law_basis: string;       // 근거법령
-  law_article: string;     // 법령조항
-  item_names: string;    // Treated as string for CSV input
+  industry_names: string;
+  law_basis: string;
+  law_article: string;
+  item_names: string;
   delivery_period_text: string;
   contract_method_text: string;
   region_restriction_text: string | null;
@@ -86,16 +113,18 @@ interface FormValues {
   joint_venture_allow: boolean;
   project_contact: string;
   contract_contact: string;
-  // NEW: Bid date fields
+
+  // Bid date fields
   bid_submission_start: string;
   bid_submission_end: string;
   bid_opening_datetime: string;
   bid_opening_place: string;
-  // NEW: 4대 파라미터
-  contract_law_type: string;      // 계약법 구분
-  contract_type: string;          // 계약 유형
-  bidding_method: string;         // 입찰 방법
-  winner_determination: string;   // 낙찰자결정방법
+
+  // 4대 파라미터
+  contract_law_type: string;
+  contract_type: string;
+  bidding_method: string;
+  winner_determination: string;
 }
 
 // 4대 파라미터 정의 타입
@@ -120,48 +149,48 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [docxFilename, setDocxFilename] = useState<string | null>(null);
-  const [isEditingHtml, setIsEditingHtml] = useState(false); // HTML 편집 모드
-  const [verificationReport, setVerificationReport] = useState<any>(null); // 검증 결과
+  const [isEditingHtml, setIsEditingHtml] = useState(false);
+  const [verificationReport, setVerificationReport] = useState<any>(null);
 
   // 🔐 로그인 상태
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginId, setLoginId] = useState('');
   const [loginPw, setLoginPw] = useState('');
-  
+
   // 🔑 사용자 OpenAI API Key (세션 저장)
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState('');
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("OPENAI_API_KEY");
+    const saved = sessionStorage.getItem('OPENAI_API_KEY');
     if (saved) setApiKey(saved);
   }, []);
 
   const saveApiKey = async () => {
-    sessionStorage.setItem("OPENAI_API_KEY", apiKey);
+    sessionStorage.setItem('OPENAI_API_KEY', apiKey);
 
     try {
-      const res = await axios.get(`${API_BASE}/auth/check`, {
+      await axios.get(`${API_BASE}/auth/check`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
 
       notifications.show({
-        title: "✅ API Key 확인 완료",
-        message: "이제 검증/생성 기능이 사용자 키로 동작합니다.",
-        color: "teal",
+        title: '✅ API Key 확인 완료',
+        message: '이제 검증/생성 기능이 사용자 키로 동작합니다.',
+        color: 'teal',
         icon: <IconCheck size={18} />,
       });
     } catch (e: any) {
       notifications.show({
-        title: "❌ API Key 오류",
-        message: "키가 유효하지 않거나 서버 연결에 실패했습니다.",
-        color: "red",
+        title: '❌ API Key 오류',
+        message: '키가 유효하지 않거나 서버 연결에 실패했습니다.',
+        color: 'red',
         icon: <IconX size={18} />,
       });
     }
   };
 
   const handleLogin = () => {
-    // 간단한 데모 로그인 로직
+    // 데모 로그인
     if (loginId && loginPw) {
       setIsLoggedIn(true);
       notifications.show({
@@ -184,8 +213,12 @@ export default function Home() {
     setIsLoggedIn(false);
     setLoginId('');
     setLoginPw('');
-    setActiveStep(0); // Reset steps
+    setActiveStep(0);
     setFile(null);
+    setHtmlContent(null);
+    setDocxFilename(null);
+    setVerificationReport(null);
+
     notifications.show({
       title: '로그아웃',
       message: '로그아웃 되었습니다.',
@@ -193,11 +226,10 @@ export default function Home() {
     });
   };
 
-  // 🎯 4대 파라미터 정의 (서버에서 가져옴)
+  // 🎯 4대 파라미터 정의
   const [parameters, setParameters] = useState<ParametersData | null>(null);
   const [availableBiddingMethods, setAvailableBiddingMethods] = useState<string[]>([]);
 
-  // 파라미터 정의 가져오기
   useEffect(() => {
     const fetchParameters = async () => {
       try {
@@ -214,32 +246,32 @@ export default function Home() {
   // Mantine Form
   const form = useForm<FormValues>({
     initialValues: {
-      notice_name: "",
+      notice_name: '',
       budget_total: 0,
       budget_supply: 0,
-      item_codes: "",
-      industry_codes: "",
-      industry_names: "",
-      law_basis: "",
-      law_article: "",
-      item_names: "",
-      delivery_period_text: "",
-      contract_method_text: "",
-      region_restriction_text: "", // 지역제한
-      sme_restriction_text: "",    // 기업제한 (자동계산)
+      item_codes: '',
+      industry_codes: '',
+      industry_names: '',
+      law_basis: '',
+      law_article: '',
+      item_names: '',
+      delivery_period_text: '',
+      contract_method_text: '',
+      region_restriction_text: '',
+      sme_restriction_text: '',
       joint_venture_allow: false,
-      project_contact: "",
-      contract_contact: "",
-      // NEW: Bid date fields (empty = auto-calculate)
-      bid_submission_start: "",
-      bid_submission_end: "",
-      bid_opening_datetime: "",
-      bid_opening_place: "국가종합전자조달시스템(나라장터)",
-      // NEW: 4대 파라미터 기본값
-      contract_law_type: "국가계약법",
-      contract_type: "물품구매",
-      bidding_method: "제한경쟁",
-      winner_determination: "소액수의",
+      project_contact: '',
+      contract_contact: '',
+
+      bid_submission_start: '',
+      bid_submission_end: '',
+      bid_opening_datetime: '',
+      bid_opening_place: '국가종합전자조달시스템(나라장터)',
+
+      contract_law_type: '국가계약법',
+      contract_type: '물품구매',
+      bidding_method: '제한경쟁',
+      winner_determination: '소액수의',
     },
     validate: {
       notice_name: (value) => (value ? null : '공고명은 필수입니다'),
@@ -253,14 +285,11 @@ export default function Home() {
       if (!form.values.winner_determination) return;
 
       try {
-        // 소액수의인 경우 자동으로 수의계약으로 설정
         if (form.values.winner_determination === '소액수의') {
           form.setFieldValue('bidding_method', '수의계약');
           setAvailableBiddingMethods(['수의계약']);
         } else if (form.values.winner_determination === '적격심사') {
-          // 적격심사인 경우 수의계약 제외
           setAvailableBiddingMethods(['일반경쟁', '제한경쟁', '지명경쟁']);
-          // 현재 수의계약이면 제한경쟁으로 변경
           if (form.values.bidding_method === '수의계약') {
             form.setFieldValue('bidding_method', '제한경쟁');
           }
@@ -271,18 +300,18 @@ export default function Home() {
     };
 
     updateBiddingMethod();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.values.winner_determination]);
 
-  // 🔄 [핵심 로직] 예산 변경 감지 및 강제 설정
+  // 🔄 예산 변경 감지 및 강제 설정
   useEffect(() => {
-    // 1. 지역제한은 항상 전국으로 고정
     if (form.values.region_restriction_text !== '전국') {
       form.setFieldValue('region_restriction_text', '전국');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.budget_supply]);
 
-  }, [form.values.budget_supply]); // budget_supply가 변할 때마다 실행
-
-  // Step 1: Upload PDF/HWP & Extract
+  // Step 1: Upload & Extract
   const handleExtract = async () => {
     if (!file) return;
 
@@ -306,14 +335,14 @@ export default function Home() {
 
       const data = response.data;
 
-      // 📅 소액수의 여부 판단 후 기본 날짜 계산
       const budgetSupply = data.budget_supply || 0;
       const contractMethodText = data.contract_method_text || '';
-      const isSmallSum = budgetSupply <= SMALL_SUM_LIMIT &&
+      const isSmallSum =
+        budgetSupply <= SMALL_SUM_LIMIT &&
         (contractMethodText.includes('소액') || !contractMethodText.includes('일반'));
+
       const defaultDates = calculateDefaultBidDates(isSmallSum);
 
-      // Populate Form
       form.setValues({
         notice_name: data.notice_name || '',
         budget_total: data.budget_total || 0,
@@ -325,19 +354,19 @@ export default function Home() {
         region_restriction_text: data.region_restriction_text || '',
         sme_restriction_text: data.sme_restriction_text || '',
         joint_venture_allow: data.joint_venture_allow || false,
-        // New fields
+
         project_contact: data.project_contact || '',
         contract_contact: data.contract_contact || '',
         industry_codes: data.industry_codes ? data.industry_codes.join(', ') : '',
         industry_names: data.industry_names ? data.industry_names.join(', ') : '',
         law_basis: data.law_basis ? data.law_basis.join(', ') : '',
         law_article: data.law_article ? data.law_article.join(', ') : '',
-        // 📅 기본 날짜값 설정 (자동 계산됨)
+
         bid_submission_start: defaultDates.start,
         bid_submission_end: defaultDates.end,
         bid_opening_datetime: defaultDates.opening,
         bid_opening_place: '국가종합전자조달시스템(나라장터)',
-        // ✨ 4대 파라미터 (자동 설정)
+
         contract_law_type: data.contract_law_type || '국가계약법',
         contract_type: data.contract_type || '물품구매',
         winner_determination: isSmallSum ? '소액수의' : '적격심사',
@@ -354,8 +383,7 @@ export default function Home() {
         autoClose: 3000,
       });
 
-      setActiveStep(1); // Go to Edit Step
-
+      setActiveStep(1);
     } catch (error) {
       console.error(error);
       notifications.update({
@@ -372,38 +400,48 @@ export default function Home() {
     }
   };
 
-  // Step 2: Generate Notice with Edited Data
+  // Step 2: Generate Notice (✅ Bearer apiKey 포함 + ✅ JSON 요청)
   const handleGenerate = async () => {
     const validation = form.validate();
     if (validation.hasErrors) return;
 
+    const savedKey = sessionStorage.getItem('OPENAI_API_KEY') || '';
+    if (!savedKey) {
+      notifications.show({
+        title: 'API Key 필요',
+        message: '상단에서 OpenAI API Key를 먼저 저장 & 확인 해주세요.',
+        color: 'red',
+        icon: <IconX size={18} />,
+      });
+      return;
+    }
+
     setLoading(true);
     setHtmlContent(null);
     setDocxFilename(null);
-    setVerificationReport(null); // 검증 결과 초기화
+    setVerificationReport(null);
 
-    // Convert string arrays back to lists
     const payload = {
       plan_data: {
         ...form.values,
-        item_codes: form.values.item_codes.split(',').map(s => s.trim()).filter(Boolean),
-        item_names: form.values.item_names.split(',').map(s => s.trim()).filter(Boolean),
-        industry_codes: form.values.industry_codes.split(',').map(s => s.trim()).filter(Boolean),
-        industry_names: form.values.industry_names.split(',').map(s => s.trim()).filter(Boolean),
-        law_basis: form.values.law_basis.split(',').map(s => s.trim()).filter(Boolean),
-        law_article: form.values.law_article.split(',').map(s => s.trim()).filter(Boolean),
-        // Bid date fields: if empty string, send null for auto-calculation
+        item_codes: form.values.item_codes.split(',').map((s) => s.trim()).filter(Boolean),
+        item_names: form.values.item_names.split(',').map((s) => s.trim()).filter(Boolean),
+        industry_codes: form.values.industry_codes.split(',').map((s) => s.trim()).filter(Boolean),
+        industry_names: form.values.industry_names.split(',').map((s) => s.trim()).filter(Boolean),
+        law_basis: form.values.law_basis.split(',').map((s) => s.trim()).filter(Boolean),
+        law_article: form.values.law_article.split(',').map((s) => s.trim()).filter(Boolean),
+
         bid_submission_start: form.values.bid_submission_start || null,
         bid_submission_end: form.values.bid_submission_end || null,
         bid_opening_datetime: form.values.bid_opening_datetime || null,
         bid_opening_place: form.values.bid_opening_place || null,
-        // ✨ 4대 파라미터 포함
+
         contract_law_type: form.values.contract_law_type,
         contract_type: form.values.contract_type,
         bidding_method: form.values.bidding_method,
         winner_determination: form.values.winner_determination,
       },
-      enable_verification: true, // 검증 활성화
+      enable_verification: true,
     };
 
     const id = notifications.show({
@@ -415,21 +453,24 @@ export default function Home() {
     });
 
     try {
-      const response = await axios.post(`${API_BASE}/generate_from_data`, payload);
+      const response = await axios.post(`${API_BASE}/generate_from_data`, payload, {
+        headers: {
+          Authorization: `Bearer ${savedKey}`,
+          // ✅ Content-Type 지정하지 않음 (axios가 JSON으로 자동)
+        },
+      });
 
-      if (response.data.html_content) {
+      if (response.data?.html_content) {
         setHtmlContent(response.data.html_content);
         setDocxFilename(response.data.docx_filename || null);
 
-        // 검증 결과 저장
         if (response.data.verification) {
           setVerificationReport(response.data.verification);
           console.log('[Verification] Report:', response.data.verification);
         }
 
-        setActiveStep(2); // Go to Result Step
+        setActiveStep(2);
 
-        // 검증 결과에 따른 알림 색상 결정
         const riskLevel = response.data.verification?.overall_risk || 'LOW';
         const notifColor = riskLevel === 'HIGH' ? 'orange' : riskLevel === 'MEDIUM' ? 'yellow' : 'teal';
 
@@ -437,16 +478,17 @@ export default function Home() {
           id,
           color: notifColor,
           title: '생성 완료!',
-          message: riskLevel !== 'LOW'
-            ? `입찰공고문이 작성되었습니다. ⚠️ 검증 결과: ${riskLevel} 리스크`
-            : '입찰공고문 작성 및 검증이 완료되었습니다.',
+          message:
+            riskLevel !== 'LOW'
+              ? `입찰공고문이 작성되었습니다. ⚠️ 검증 결과: ${riskLevel} 리스크`
+              : '입찰공고문 작성 및 검증이 완료되었습니다.',
           icon: <IconCheck style={{ width: 18, height: 18 }} />,
           loading: false,
           autoClose: 5000,
         });
+      } else {
+        throw new Error('No html_content in response');
       }
-
-
     } catch (error) {
       console.error(error);
       notifications.update({
@@ -463,34 +505,44 @@ export default function Home() {
     }
   };
 
-  // 🔐 로그인 화면 렌더링
+  // 🔐 로그인 화면
   if (!isLoggedIn) {
     return (
-      <Box style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <Paper p={50} radius="lg" shadow="xl" style={{ width: 420, backdropFilter: 'blur(10px)', backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
+      <Box
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Paper
+          p={50}
+          radius="lg"
+          shadow="xl"
+          style={{
+            width: 420,
+            backdropFilter: 'blur(10px)',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          }}
+        >
           <Stack align="center" mb="xl" gap="xs">
-            {/* <ThemeIcon size={80} radius="xl" variant="gradient" gradient={{ from: '#2E86C1', to: '#9BCF53', deg: 135 }}>
-              <IconFileCheck size={40} />
-            </ThemeIcon> */}
-            <Image
-              src="/keco_logo.png"
-              w={120}
-              h="auto"
-              fit="contain"
-              alt="한국환경공단"
-              mb="sm"
-            />
-            <Title order={2} style={{ color: '#2E86C1', marginTop: 15 }}>한국환경공단</Title>
-            <Text c="dimmed" size="sm">지능형 입찰공고 자동 생성 시스템</Text>
+            <Image src="/keco_logo.png" w={120} h="auto" fit="contain" alt="한국환경공단" mb="sm" />
+            <Title order={2} style={{ color: '#2E86C1', marginTop: 15 }}>
+              한국환경공단
+            </Title>
+            <Text c="dimmed" size="sm">
+              지능형 입찰공고 자동 생성 시스템
+            </Text>
           </Stack>
 
-          <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleLogin();
+            }}
+          >
             <Stack gap="lg">
               <TextInput
                 label="아이디"
@@ -510,7 +562,14 @@ export default function Home() {
                 value={loginPw}
                 onChange={(e) => setLoginPw(e.currentTarget.value)}
               />
-              <Button fullWidth mt="xl" size="md" type="submit" variant="gradient" gradient={{ from: '#2E86C1', to: '#1c7ed6', deg: 90 }}>
+              <Button
+                fullWidth
+                mt="xl"
+                size="md"
+                type="submit"
+                variant="gradient"
+                gradient={{ from: '#2E86C1', to: '#1c7ed6', deg: 90 }}
+              >
                 로그인
               </Button>
               <Text c="dimmed" size="xs" ta="center">
@@ -528,20 +587,29 @@ export default function Home() {
       <AppShell.Header p="md">
         <Group justify="space-between">
           <Box>
-            <Title order={3} style={{
-              background: 'linear-gradient(135deg, #9BCF53 0%, #2E86C1 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              fontWeight: 800
-            }}>
+            <Title
+              order={3}
+              style={{
+                background: 'linear-gradient(135deg, #9BCF53 0%, #2E86C1 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: 800,
+              }}
+            >
               한국환경공단
             </Title>
             <Text c="dimmed" size="xs">
               지능형 입찰공고 자동 생성 시스템 (Review Mode)
             </Text>
           </Box>
-          {/* Logout Button */}
-          <Button variant="subtle" color="gray" size="sm" onClick={handleLogout} leftSection={<IconLogout size={16} />}>
+
+          <Button
+            variant="subtle"
+            color="gray"
+            size="sm"
+            onClick={handleLogout}
+            leftSection={<IconLogout size={16} />}
+          >
             로그아웃
           </Button>
         </Group>
@@ -557,13 +625,38 @@ export default function Home() {
             <Stepper.Step label="공고문 확인" description="최종 결과" icon={<IconCheck size={18} />} />
           </Stepper>
 
+          {/* ✅ API Key 입력 UI */}
+          <Paper p="md" withBorder radius="md" mb="md">
+            <Group justify="space-between" align="flex-end">
+              <div style={{ flex: 1 }}>
+                <Text fw={700}>🔑 OpenAI API Key</Text>
+                <Text size="xs" c="dimmed">
+                  키는 브라우저 세션에만 저장되며 서버에 저장되지 않습니다.
+                </Text>
+                <PasswordInput
+                  mt="xs"
+                  placeholder="sk-..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.currentTarget.value)}
+                />
+              </div>
+
+              <Button
+                onClick={saveApiKey}
+                leftSection={<IconCheck size={16} />}
+                variant="gradient"
+                gradient={{ from: '#2E86C1', to: '#1c7ed6', deg: 90 }}
+              >
+                저장 & 확인
+              </Button>
+            </Group>
+          </Paper>
+
           {/* Step 0: Upload */}
           {activeStep === 0 && (
             <Paper p={50} withBorder radius="lg" shadow="md" style={{ borderColor: '#e9ecef', overflow: 'hidden' }}>
               <Dropzone
-                onDrop={(files) => {
-                  setFile(files[0]);
-                }}
+                onDrop={(files) => setFile(files[0])}
                 onReject={() => console.log('rejected')}
                 maxSize={30 * 1024 ** 2}
                 accept={{
@@ -576,27 +669,18 @@ export default function Home() {
                 style={{
                   border: '2px dashed #a5d8ff',
                   borderRadius: '16px',
-                  backgroundColor: '#f8fbfc'
+                  backgroundColor: '#f8fbfc',
                 }}
               >
                 <Group justify="center" gap="xl" style={{ minHeight: 220, pointerEvents: 'none' }}>
                   <Dropzone.Accept>
-                    <IconUpload
-                      style={{ width: 60, height: 60, color: '#2E86C1' }}
-                      stroke={1.5}
-                    />
+                    <IconUpload style={{ width: 60, height: 60, color: '#2E86C1' }} stroke={1.5} />
                   </Dropzone.Accept>
                   <Dropzone.Reject>
-                    <IconX
-                      style={{ width: 60, height: 60, color: 'var(--mantine-color-red-6)' }}
-                      stroke={1.5}
-                    />
+                    <IconX style={{ width: 60, height: 60, color: 'var(--mantine-color-red-6)' }} stroke={1.5} />
                   </Dropzone.Reject>
                   <Dropzone.Idle>
-                    <IconFile
-                      style={{ width: 60, height: 60, color: '#9BCF53' }} // Used Green from logo
-                      stroke={1.5}
-                    />
+                    <IconFile style={{ width: 60, height: 60, color: '#9BCF53' }} stroke={1.5} />
                   </Dropzone.Idle>
 
                   <div style={{ textAlign: 'center' }}>
@@ -618,8 +702,12 @@ export default function Home() {
                         <IconFile size={22} />
                       </ThemeIcon>
                       <div>
-                        <Text size="sm" fw={600} c="dark.8">{file.name}</Text>
-                        <Text size="xs" c="dimmed">({(file.size / 1024).toFixed(1)} KB)</Text>
+                        <Text size="sm" fw={600} c="dark.8">
+                          {file.name}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          ({(file.size / 1024).toFixed(1)} KB)
+                        </Text>
                       </div>
                     </Group>
                     <Button
@@ -642,12 +730,15 @@ export default function Home() {
           {activeStep === 1 && (
             <Paper p="xl" radius="lg" withBorder shadow="md">
               <Group justify="space-between" mb="lg">
-                <Title order={3} c="dark.7">⚖️ 공고 설정 확인</Title>
-                <Badge color="blue" size="lg" variant="dot" radius="sm">법령 자동 적용 중</Badge>
+                <Title order={3} c="dark.7">
+                  ⚖️ 공고 설정 확인
+                </Title>
+                <Badge color="blue" size="lg" variant="dot" radius="sm">
+                  법령 자동 적용 중
+                </Badge>
               </Group>
 
               <Grid gutter="md">
-                {/* 1. 공고명 & 예산 (Driver) */}
                 <Grid.Col span={12}>
                   <TextInput label="공고명" required {...form.getInputProps('notice_name')} />
                 </Grid.Col>
@@ -656,14 +747,17 @@ export default function Home() {
                   <NumberInput
                     label="① 추정가격 (공급가액)"
                     description="이 금액에 따라 지역/기업 제한이 강제됩니다."
-                    thousandSeparator required c="blue" fw={700}
+                    thousandSeparator
+                    required
                     {...form.getInputProps('budget_supply')}
                   />
                 </Grid.Col>
+
                 <Grid.Col span={6}>
                   <NumberInput
                     label="② 사업금액 (부가세 포함)"
-                    thousandSeparator required
+                    thousandSeparator
+                    required
                     {...form.getInputProps('budget_total')}
                   />
                 </Grid.Col>
@@ -672,12 +766,17 @@ export default function Home() {
                 <Grid.Col span={12}>
                   <Paper withBorder p="lg" radius="md" style={{ borderLeft: '6px solid #2E86C1', background: '#fff' }}>
                     <Group mb="xs">
-                      <Text size="lg" fw={700} c="dark.7">계약 파라미터 설정</Text>
-                      <Badge variant="light" color="blue">필수</Badge>
+                      <Text size="lg" fw={700} c="dark.7">
+                        계약 파라미터 설정
+                      </Text>
+                      <Badge variant="light" color="blue">
+                        필수
+                      </Badge>
                     </Group>
                     <Text size="sm" c="dimmed" mb="md">
                       계약법, 계약유형, 입찰방법, 낙찰자결정방법을 선택하세요.
                     </Text>
+
                     <Grid>
                       <Grid.Col span={6}>
                         <Select
@@ -707,9 +806,10 @@ export default function Home() {
                         <Select
                           label="입찰 방법"
                           description={form.values.winner_determination === '소액수의' ? '수의계약으로 자동 설정됨' : '선택 가능'}
-                          data={availableBiddingMethods.length > 0
-                            ? availableBiddingMethods
-                            : (parameters?.bidding_methods.values || ['일반경쟁', '제한경쟁', '지명경쟁', '수의계약'])
+                          data={
+                            availableBiddingMethods.length > 0
+                              ? availableBiddingMethods
+                              : parameters?.bidding_methods.values || ['일반경쟁', '제한경쟁', '지명경쟁', '수의계약']
                           }
                           disabled={form.values.winner_determination === '소액수의'}
                           {...form.getInputProps('bidding_method')}
@@ -718,23 +818,22 @@ export default function Home() {
                       </Grid.Col>
                     </Grid>
 
-                    {/* 파라미터 정보 표시 */}
                     {form.values.winner_determination === '소액수의' && (
                       <Alert color="blue" mt="md" variant="light" icon={<IconLock size={16} />}>
-                        <Text size="sm">
-                          낙찰자결정방법이 '소액수의'이므로 입찰방법이 자동으로 '수의계약'으로 설정됩니다.
-                        </Text>
+                        <Text size="sm">낙찰자결정방법이 '소액수의'이므로 입찰방법이 자동으로 '수의계약'으로 설정됩니다.</Text>
                       </Alert>
                     )}
                   </Paper>
                 </Grid.Col>
 
-                {/* 2. 지역제한 (고정) */}
+                {/* 지역제한 고정 */}
                 <Grid.Col span={12}>
                   <Paper withBorder p="lg" radius="md" style={{ borderLeft: '6px solid #adb5bd', background: '#fff' }}>
                     <Group mb="xs">
                       <IconLock size={20} color="gray" />
-                      <Text size="lg" fw={700} c="dimmed">지역 제한 (고정)</Text>
+                      <Text size="lg" fw={700} c="dimmed">
+                        지역 제한 (고정)
+                      </Text>
                     </Group>
                     <Grid>
                       <Grid.Col span={6}>
@@ -758,7 +857,6 @@ export default function Home() {
                   </Paper>
                 </Grid.Col>
 
-                {/* 3. 자격 요건 & 기타 */}
                 <Grid.Col span={6}>
                   <TextInput
                     label="세부품명번호"
@@ -767,6 +865,7 @@ export default function Home() {
                     {...form.getInputProps('item_codes')}
                   />
                 </Grid.Col>
+
                 <Grid.Col span={6}>
                   <TextInput
                     label="물품명"
@@ -775,96 +874,74 @@ export default function Home() {
                     {...form.getInputProps('item_names')}
                   />
                 </Grid.Col>
+
                 <Grid.Col span={4}>
                   <TextInput label="업종코드" placeholder="예: 4608" description="수정 가능" {...form.getInputProps('industry_codes')} />
                 </Grid.Col>
+
                 <Grid.Col span={4}>
-                  <TextInput
-                    label="업종명"
-                    placeholder="업종명 입력 또는 API 조회"
-                    description="API 조회 실패 시 직접 입력"
-                    {...form.getInputProps('industry_names')}
-                  />
+                  <TextInput label="업종명" placeholder="업종명 입력 또는 API 조회" description="API 조회 실패 시 직접 입력" {...form.getInputProps('industry_names')} />
                 </Grid.Col>
+
                 <Grid.Col span={4}>
-                  <TextInput
-                    label="근거법령"
-                    placeholder="관련 법령 입력"
-                    description="API 조회 실패 시 직접 입력"
-                    {...form.getInputProps('law_basis')}
-                  />
+                  <TextInput label="근거법령" placeholder="관련 법령 입력" description="API 조회 실패 시 직접 입력" {...form.getInputProps('law_basis')} />
                 </Grid.Col>
+
                 <Grid.Col span={4}>
-                  <TextInput
-                    label="법령조항"
-                    placeholder="예: 제3조 제1항"
-                    description="직접 입력 (API 미제공)"
-                    {...form.getInputProps('law_article')}
-                  />
+                  <TextInput label="법령조항" placeholder="예: 제3조 제1항" description="직접 입력 (API 미제공)" {...form.getInputProps('law_article')} />
                 </Grid.Col>
+
                 <Grid.Col span={6}>
-                  <Switch
-                    label="공동계약 허용"
-                    mt={28} size="md"
-                    {...form.getInputProps('joint_venture_allow', { type: 'checkbox' })}
-                  />
+                  <Switch label="공동계약 허용" mt={28} size="md" {...form.getInputProps('joint_venture_allow', { type: 'checkbox' })} />
                 </Grid.Col>
 
                 <Grid.Col span={12}>
                   <TextInput label="납품기한 (조건)" {...form.getInputProps('delivery_period_text')} />
                 </Grid.Col>
 
-                {/* 📅 입찰 날짜 설정 (NEW) */}
+                {/* 입찰 날짜 */}
                 <Grid.Col span={12}>
                   <Paper withBorder p="lg" radius="md" style={{ borderLeft: '6px solid #9BCF53', background: '#fff' }}>
                     <Group mb="xs">
-                      <Text size="lg" fw={700} c="dark.7">📅 입찰 날짜 설정</Text>
-                      <Badge color="lime" variant="light" size="sm">자동 계산됨 (수정 가능)</Badge>
+                      <Text size="lg" fw={700} c="dark.7">
+                        📅 입찰 날짜 설정
+                      </Text>
+                      <Badge color="lime" variant="light" size="sm">
+                        자동 계산됨 (수정 가능)
+                      </Badge>
                     </Group>
                     <Text size="sm" c="dimmed" mb="md">
                       소액수의: 공휴일 제외 3영업일 / 적격심사: 7일 이상 (공휴일 포함) - 필요시 직접 수정하세요
                     </Text>
                     <Grid>
                       <Grid.Col span={6}>
-                        <TextInput
-                          label="전자입찰서 제출 시작"
-                          description="공고 당일 09:00"
-                          {...form.getInputProps('bid_submission_start')}
-                        />
+                        <TextInput label="전자입찰서 제출 시작" description="공고 당일 09:00" {...form.getInputProps('bid_submission_start')} />
                       </Grid.Col>
                       <Grid.Col span={6}>
-                        <TextInput
-                          label="전자입찰서 제출 마감"
-                          description="개찰일 10:00"
-                          {...form.getInputProps('bid_submission_end')}
-                        />
+                        <TextInput label="전자입찰서 제출 마감" description="개찰일 10:00" {...form.getInputProps('bid_submission_end')} />
                       </Grid.Col>
                       <Grid.Col span={6}>
-                        <TextInput
-                          label="개찰일시"
-                          description="개찰일 11:00"
-                          {...form.getInputProps('bid_opening_datetime')}
-                        />
+                        <TextInput label="개찰일시" description="개찰일 11:00" {...form.getInputProps('bid_opening_datetime')} />
                       </Grid.Col>
                       <Grid.Col span={6}>
-                        <TextInput
-                          label="개찰장소"
-                          {...form.getInputProps('bid_opening_place')}
-                        />
+                        <TextInput label="개찰장소" {...form.getInputProps('bid_opening_place')} />
                       </Grid.Col>
                     </Grid>
                   </Paper>
                 </Grid.Col>
 
-
-                {/* 담당자 정보 */}
-                <Grid.Col span={6}><TextInput label="사업부서 담당자" {...form.getInputProps('project_contact')} /></Grid.Col>
-                <Grid.Col span={6}><TextInput label="계약부서 담당자" {...form.getInputProps('contract_contact')} /></Grid.Col>
+                <Grid.Col span={6}>
+                  <TextInput label="사업부서 담당자" {...form.getInputProps('project_contact')} />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <TextInput label="계약부서 담당자" {...form.getInputProps('contract_contact')} />
+                </Grid.Col>
               </Grid>
 
-
               <Group justify="flex-end" mt="xl">
-                <Button variant="default" size="md" onClick={() => setActiveStep(0)}>뒤로가기</Button>
+                <Button variant="default" size="md" onClick={() => setActiveStep(0)}>
+                  뒤로가기
+                </Button>
                 <Button size="md" onClick={handleGenerate} rightSection={<IconFileCheck size={18} />} color="blue">
                   공고문 생성하기
                 </Button>
@@ -872,7 +949,7 @@ export default function Home() {
             </Paper>
           )}
 
-          {/* Step 2: Result - 좌우 분할 레이아웃 */}
+          {/* Step 2: Result */}
           {activeStep === 2 && htmlContent && (
             <Paper
               p="xl"
@@ -887,20 +964,17 @@ export default function Home() {
               <Stack gap="lg">
                 <Group justify="space-between">
                   <Group>
-                    <Title order={3} c="dark.7">생성 결과</Title>
-                    <Badge
-                      color={isEditingHtml ? "teal" : "blue"}
-                      size="lg"
-                      variant="light"
-                      radius="sm"
-                    >
-                      {isEditingHtml ? "✏️ 편집 모드" : "👁️ 보기 모드"}
+                    <Title order={3} c="dark.7">
+                      생성 결과
+                    </Title>
+                    <Badge color={isEditingHtml ? 'teal' : 'blue'} size="lg" variant="light" radius="sm">
+                      {isEditingHtml ? '✏️ 편집 모드' : '👁️ 보기 모드'}
                     </Badge>
                   </Group>
                   <Group>
                     <Button
-                      variant={isEditingHtml ? "filled" : "light"}
-                      color={isEditingHtml ? "teal" : "blue"}
+                      variant={isEditingHtml ? 'filled' : 'light'}
+                      color={isEditingHtml ? 'teal' : 'blue'}
                       onClick={() => setIsEditingHtml(!isEditingHtml)}
                       leftSection={<IconPencil size={16} />}
                       radius="md"
@@ -918,40 +992,67 @@ export default function Home() {
                   </Alert>
                 )}
 
-                {/* 📐 상하 레이아웃: 검증 결과 (상단) + 공고문 (하단) */}
                 <Stack>
-                  {/* 상단: 검증 결과 */}
+                  {/* 검증 결과 */}
                   {verificationReport && (
                     <Box>
-                      <Paper withBorder p="lg" radius="md" bg={
-                        verificationReport.overall_risk === 'HIGH' ? 'red.0' :
-                          verificationReport.overall_risk === 'MEDIUM' ? 'yellow.0' : 'green.0'
-                      }>
+                      <Paper
+                        withBorder
+                        p="lg"
+                        radius="md"
+                        bg={
+                          verificationReport.overall_risk === 'HIGH'
+                            ? 'red.0'
+                            : verificationReport.overall_risk === 'MEDIUM'
+                            ? 'yellow.0'
+                            : 'green.0'
+                        }
+                      >
                         <Group justify="space-between" mb="md">
                           <Group>
-                            <Text fw={700} size="lg">🔍 공고문 검증 결과</Text>
+                            <Text fw={700} size="lg">
+                              🔍 공고문 검증 결과
+                            </Text>
                             <Badge
                               size="lg"
                               color={
-                                verificationReport.overall_risk === 'HIGH' ? 'red' :
-                                  verificationReport.overall_risk === 'MEDIUM' ? 'yellow' : 'green'
+                                verificationReport.overall_risk === 'HIGH'
+                                  ? 'red'
+                                  : verificationReport.overall_risk === 'MEDIUM'
+                                  ? 'yellow'
+                                  : 'green'
                               }
                             >
-                              {verificationReport.overall_risk === 'HIGH' ? '⚠️ 고위험' :
-                                verificationReport.overall_risk === 'MEDIUM' ? '⚡ 중위험' : '✅ 저위험'}
+                              {verificationReport.overall_risk === 'HIGH'
+                                ? '⚠️ 고위험'
+                                : verificationReport.overall_risk === 'MEDIUM'
+                                ? '⚡ 중위험'
+                                : '✅ 저위험'}
                             </Badge>
                           </Group>
                         </Group>
 
                         <Tabs defaultValue="violations" variant="pills" radius="md">
                           <Tabs.List grow>
-                            <Tabs.Tab value="violations" color={verificationReport.rule_violations?.length > 0 ? 'orange' : 'gray'} style={{ fontSize: '14px', padding: '10px 12px' }}>
+                            <Tabs.Tab
+                              value="violations"
+                              color={verificationReport.rule_violations?.length > 0 ? 'orange' : 'gray'}
+                              style={{ fontSize: '14px', padding: '10px 12px' }}
+                            >
                               📋 규칙 위반 ({verificationReport.rule_violations?.length || 0})
                             </Tabs.Tab>
-                            <Tabs.Tab value="legal" color={verificationReport.legal_findings?.some((f: any) => f.status === 'RISK') ? 'red' : 'gray'} style={{ fontSize: '14px', padding: '10px 12px' }}>
+                            <Tabs.Tab
+                              value="legal"
+                              color={verificationReport.legal_findings?.some((f: any) => f.status === 'RISK') ? 'red' : 'gray'}
+                              style={{ fontSize: '14px', padding: '10px 12px' }}
+                            >
                               ⚖️ 법령 검토 ({verificationReport.legal_findings?.length || 0})
                             </Tabs.Tab>
-                            <Tabs.Tab value="benchmark" color={verificationReport.benchmark_stats?.some((s: any) => s.outlier) ? 'yellow' : 'gray'} style={{ fontSize: '14px', padding: '10px 12px' }}>
+                            <Tabs.Tab
+                              value="benchmark"
+                              color={verificationReport.benchmark_stats?.some((s: any) => s.outlier) ? 'yellow' : 'gray'}
+                              style={{ fontSize: '14px', padding: '10px 12px' }}
+                            >
                               📊 시장 비교 ({verificationReport.benchmark_stats?.length || 0})
                             </Tabs.Tab>
                           </Tabs.List>
@@ -966,7 +1067,9 @@ export default function Home() {
                                 ))}
                               </Stack>
                             ) : (
-                              <Text size="sm" c="dimmed">규칙 위반 사항이 없습니다.</Text>
+                              <Text size="sm" c="dimmed">
+                                규칙 위반 사항이 없습니다.
+                              </Text>
                             )}
                           </Tabs.Panel>
 
@@ -974,24 +1077,35 @@ export default function Home() {
                             {verificationReport.legal_findings?.length > 0 ? (
                               <Stack gap="md">
                                 {verificationReport.legal_findings.map((f: any, i: number) => (
-                                  <Paper key={i} withBorder p="sm" bg={
-                                    f.status === 'RISK' ? 'red.0' : f.status === 'NEEDS_REVIEW' ? 'yellow.0' : 'green.0'
-                                  }>
+                                  <Paper
+                                    key={i}
+                                    withBorder
+                                    p="sm"
+                                    bg={f.status === 'RISK' ? 'red.0' : f.status === 'NEEDS_REVIEW' ? 'yellow.0' : 'green.0'}
+                                  >
                                     <Group justify="space-between" mb="xs">
-                                      <Text size="sm" fw={600} lineClamp={2}>{f.target_sentence?.substring(0, 50)}...</Text>
+                                      <Text size="sm" fw={600} lineClamp={2}>
+                                        {f.target_sentence?.substring(0, 50)}...
+                                      </Text>
                                       <Badge color={f.status === 'RISK' ? 'red' : f.status === 'NEEDS_REVIEW' ? 'yellow' : 'green'} size="sm">
                                         {f.status}
                                       </Badge>
                                     </Group>
-                                    <Text size="sm" c="dimmed" lineClamp={3}>{f.reason}</Text>
+                                    <Text size="sm" c="dimmed" lineClamp={3}>
+                                      {f.reason}
+                                    </Text>
                                     {f.suggested_rewrite && (
-                                      <Text size="sm" c="blue" mt="xs" lineClamp={3}>💡 {f.suggested_rewrite}</Text>
+                                      <Text size="sm" c="blue" mt="xs" lineClamp={3}>
+                                        💡 {f.suggested_rewrite}
+                                      </Text>
                                     )}
                                   </Paper>
                                 ))}
                               </Stack>
                             ) : (
-                              <Text size="sm" c="dimmed">법령 검토 결과가 없습니다.</Text>
+                              <Text size="sm" c="dimmed">
+                                법령 검토 결과가 없습니다.
+                              </Text>
                             )}
                           </Tabs.Panel>
 
@@ -1002,17 +1116,29 @@ export default function Home() {
                                   <Paper key={i} withBorder p="sm" bg={s.outlier ? 'yellow.0' : 'gray.0'}>
                                     <Group justify="space-between">
                                       <Group>
-                                        <Text size="sm" fw={600}>{s.field}</Text>
-                                        {s.outlier && <Badge color="yellow" size="sm">이례적</Badge>}
+                                        <Text size="sm" fw={600}>
+                                          {s.field}
+                                        </Text>
+                                        {s.outlier && (
+                                          <Badge color="yellow" size="sm">
+                                            이례적
+                                          </Badge>
+                                        )}
                                       </Group>
-                                      <Text size="sm" c="dimmed">{s.your_value}</Text>
+                                      <Text size="sm" c="dimmed">
+                                        {s.your_value}
+                                      </Text>
                                     </Group>
-                                    <Text size="sm" c="dimmed" lineClamp={2}>{s.peer_summary}</Text>
+                                    <Text size="sm" c="dimmed" lineClamp={2}>
+                                      {s.peer_summary}
+                                    </Text>
                                   </Paper>
                                 ))}
                               </Stack>
                             ) : (
-                              <Text size="sm" c="dimmed">벤치마크 결과가 없습니다.</Text>
+                              <Text size="sm" c="dimmed">
+                                벤치마크 결과가 없습니다.
+                              </Text>
                             )}
                           </Tabs.Panel>
                         </Tabs>
@@ -1020,7 +1146,7 @@ export default function Home() {
                     </Box>
                   )}
 
-                  {/* 하단: 공고문 HTML */}
+                  {/* 공고문 HTML */}
                   <div style={{ minWidth: 0, width: '100%' }}>
                     <Paper
                       p="xl"
@@ -1036,9 +1162,7 @@ export default function Home() {
                         contentEditable={isEditingHtml}
                         suppressContentEditableWarning={true}
                         onBlur={(e) => {
-                          if (isEditingHtml) {
-                            setHtmlContent(e.currentTarget.innerHTML);
-                          }
+                          if (isEditingHtml) setHtmlContent(e.currentTarget.innerHTML);
                         }}
                         dangerouslySetInnerHTML={{ __html: htmlContent }}
                         style={{
@@ -1055,39 +1179,42 @@ export default function Home() {
                   <Button variant="default" size="md" onClick={() => setActiveStep(1)}>
                     수정 후 다시 생성
                   </Button>
+
                   <Button
                     leftSection={<IconDownload size={18} />}
                     variant="light"
                     color="blue"
                     size="md"
                     onClick={() => {
-                      const blob = new Blob([htmlContent], { type: "text/html" });
+                      const blob = new Blob([htmlContent], { type: 'text/html' });
                       const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
+                      const a = document.createElement('a');
                       a.href = url;
-                      a.download = "notice.html";
+                      a.download = 'notice.html';
                       a.click();
                     }}
                   >
                     HTML 다운로드
                   </Button>
+
                   <Button
                     leftSection={<IconDownload size={18} />}
                     variant="gradient"
                     gradient={{ from: '#2E86C1', to: '#1c7ed6', deg: 90 }}
                     size="md"
                     onClick={() => {
-                      const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
+                      const header =
+                        "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
                         "xmlns:w='urn:schemas-microsoft-com:office:word' " +
-                        "xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word Document with JavaScript</title></head><body>";
-                      const footer = "</body></html>";
+                        "xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body>";
+                      const footer = '</body></html>';
                       const sourceHTML = header + htmlContent + footer;
 
-                      const blob = new Blob(['\\ufeff', sourceHTML], { type: 'application/msword' });
+                      const blob = new Blob(['\ufeff', sourceHTML], { type: 'application/msword' });
                       const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
+                      const a = document.createElement('a');
                       a.href = url;
-                      a.download = "notice.doc";
+                      a.download = 'notice.doc';
                       a.click();
                     }}
                   >
@@ -1097,7 +1224,6 @@ export default function Home() {
               </Stack>
             </Paper>
           )}
-
         </Container>
       </AppShell.Main>
     </AppShell>
